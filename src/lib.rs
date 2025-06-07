@@ -669,7 +669,7 @@ impl StreamOutlet {
 
     Arguments:
     * `func`: the native FFI function to call to push a sample
-    * `data`: A vector of values to push (one for each channel).
+    * `data`: A collection of values, treatable as a slice, to push (one for each channel).
     * `timestamp`: Optionally the capture time of the sample, in agreement with `local_clock()`;
        if passed as 0.0, the current time is used.
     * `pushthrough`: Whether to push the sample through to the receivers instead of buffering it
@@ -701,7 +701,7 @@ impl StreamOutlet {
     byte slices via `.as_ref()`.
 
     Arguments:
-    * `data`: A vector of values to push (one for each channel).
+    * `data`: A collection of values, treatable as a slice, to push (one for each channel).
     * `timestamp`: Optionally the capture time of the sample, in agreement with `local_clock()`;
        if passed as 0.0, the current time is used.
     * `pushthrough`: Whether to push the sample through to the receivers instead of buffering it
@@ -739,15 +739,16 @@ A trait that enables the methods `push_sample<T>()` and `push_chunk<T>()`. Imple
 StreamOutlet.
 
 See also the `ExPushable` trait for the extended-argument versions of these methods,
-`push_sample_ex<T>()` and `push_chunk_ex<T>()`.
+`push_sample_ex<T, V>()` and `push_chunk_ex<T, V>()`.
 
 **Note:** If you push in data that as the wrong size (array length not matching the declared number
 of channels), these functions will trigger an assertion and panic.
 */
 pub trait Pushable<T: AsRef<[V]>, V> {
     /**
-    Push a vector of values of some type as a sample into the outlet. Each entry in the vector
-    corresponds to one channel. The function handles type checking & conversion.
+    Push a collection, treatable as a slice, of values of some type as a sample into the outlet.
+    Each entry in the collection corresponds to one channel. The function handles type
+    checking & conversion.
 
     The data are time-stamped with the current time (using `local_clock()`), and immediately
     transmitted (unless a `chunk_size` was provided at outlet construction, which overrides in what
@@ -759,7 +760,8 @@ pub trait Pushable<T: AsRef<[V]>, V> {
 
     /**
     Push a chunk of samples (batched into a `Vec`) into the outlet. Each element of the given
-    vector must itself be in a format accepted by `push_sample()` (e.g., `Vec`).
+    vector must itself be in a format accepted by `push_sample()` (e.g. all types that can be
+    treated as a slice).
 
     The data are time-stamped with the current time (using `local_clock()`), and immediately
     transmitted (unless a `chunk_size` was provided at outlet construction, which causes the data
@@ -774,7 +776,8 @@ pub trait Pushable<T: AsRef<[V]>, V> {
     sample (for irregular-rate streams) into the outlet.
 
     Arguments:
-    * `samples`: A `Vec` of samples, each in a format accepted by `push_sample()` (e.g., `Vec`).
+    * `samples`: A `Vec` of samples, each in a format accepted by `push_sample()` (e.g. all types
+       that can be treated as a slice).
     * `timestamps`: A `Vec` of capture times for each sample, in agreement with `local_clock()`.
 
     The data are immediately transmitted (unless a `chunk_size` was provided at outlet
@@ -805,7 +808,7 @@ where
 }
 
 /**
-A trait that enables the methods `push_sample_ex<T>()` and `push_chunk_ex<T>()`.
+A trait that enables the methods `push_sample_ex<T, V>()` and `push_chunk_ex<T, V>()`.
 Implemented by StreamOutlet.
 
 See also the `Pushable` trait for the simpler methods `push_sample<T>()` and `push_chunk<T>()`.
@@ -820,7 +823,7 @@ pub trait ExPushable<T: AsRef<[V]>, V>: HasNominalRate {
     conversion.
 
     Arguments:
-    * `data`: A vector of values to push (one for each channel).
+    * `data`: A collection of values, treatable as a slice, to push (one for each channel).
     * `timestamp`: Optionally the capture time of the sample, in agreement with `local_clock()`;
        if passed as 0.0, the current time is used.
     * `pushthrough`: Whether to push the sample through to the receivers instead of buffering it
@@ -836,7 +839,8 @@ pub trait ExPushable<T: AsRef<[V]>, V>: HasNominalRate {
     Push a chunk of samples (batched into a `Vec`) into the outlet.
 
     Arguments:
-    * `samples`: A `Vec` of samples, each in a format accepted by `push_sample()` (e.g., `Vec`).
+    * `samples`: A `Vec` of samples, each in a format accepted by `push_sample()` (e.g. all types
+       that can be treated as a slice).
     * `timestamp`: Optionally the capture time of the most recent sample, in agreement with
        `local_clock()`; if specified as 0.0, the current time is used. The time stamps of other
        samples are automatically derived according to the sampling rate of the stream.
@@ -879,7 +883,8 @@ pub trait ExPushable<T: AsRef<[V]>, V>: HasNominalRate {
     Allows for specifying a separate time stamp for each sample (for irregular-rate streams).
 
     Arguments:
-    * `samples`: A `Vec` of samples, each in a format accepted by `push_sample()` (e.g., `Vec`).
+    * `samples`: A `Vec` of samples, each in a format accepted by `push_sample()` (e.g. all types
+       that can be treated as a slice).
     * `timestamps`: A `Vec` of capture times for each sample, in agreement with `local_clock()`.
     * `pushthrough`: Whether to push the chunk through to the receivers instead of buffering it
        with subsequent samples. Typically this would be `true`. Note that the `chunk_size`, if
@@ -950,14 +955,11 @@ where
     }
 }
 
-#[cfg(not(windows))] // TODO: once we upgrade to liblsl 1.14, we can drop this platform restriction
-impl ExPushable<vec::Vec<i64>> for StreamOutlet {
-    fn push_sample_ex(
-        &self,
-        data: &vec::Vec<i64>,
-        timestamp: f64,
-        pushthrough: bool,
-    ) -> Result<()> {
+impl<T> ExPushable<T, i64> for StreamOutlet
+where
+    T: AsRef<[i64]>,
+{
+    fn push_sample_ex(&self, data: &T, timestamp: f64, pushthrough: bool) -> Result<()> {
         self.safe_push_numeric(lsl_push_sample_ltp, data, timestamp, pushthrough)
     }
 }
