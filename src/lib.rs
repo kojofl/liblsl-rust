@@ -35,7 +35,7 @@ use lsl_sys::*;
 use std::convert::{From, TryFrom};
 use std::ffi;
 use std::fmt;
-use std::rc;
+use std::sync::Arc;
 use std::vec;
 
 /// Constant to indicate that a stream has variable sampling rate.
@@ -216,7 +216,7 @@ github repository). You can find various uses of the `StreamInfo` object in most
 #[derive(Debug)]
 pub struct StreamInfo {
     // internal fields
-    handle: rc::Rc<StreamInfoHandle>,
+    handle: Arc<StreamInfoHandle>,
 }
 
 impl StreamInfo {
@@ -270,7 +270,7 @@ impl StreamInfo {
             );
             match handle.is_null() {
                 false => Ok(StreamInfo {
-                    handle: rc::Rc::new(StreamInfoHandle { handle }),
+                    handle: Arc::new(StreamInfoHandle { handle }),
                 }),
                 true => Err(Error::ResourceCreation),
             }
@@ -489,7 +489,7 @@ impl StreamInfo {
             let handle = lsl_streaminfo_from_xml(xml.as_ptr());
             match handle.is_null() {
                 false => Ok(StreamInfo {
-                    handle: rc::Rc::new(StreamInfoHandle { handle }),
+                    handle: Arc::new(StreamInfoHandle { handle }),
                 }),
                 true => Err(Error::ResourceCreation),
             }
@@ -510,7 +510,7 @@ impl StreamInfo {
             "Attempted to create a StreamInfo from a NULL handle."
         );
         StreamInfo {
-            handle: rc::Rc::new(StreamInfoHandle { handle }),
+            handle: Arc::new(StreamInfoHandle { handle }),
         }
     }
 
@@ -529,7 +529,7 @@ impl Clone for StreamInfo {
                 "Failed to clone native lsl_streaminfo object."
             );
             StreamInfo {
-                handle: rc::Rc::new(StreamInfoHandle { handle }),
+                handle: Arc::new(StreamInfoHandle { handle }),
             }
         }
     }
@@ -1754,7 +1754,7 @@ intermittent zero bytes (otherwise this will trigger an assertion).
 pub struct XMLElement {
     // internal fields
     cursor: lsl_xml_ptr,
-    doc: rc::Rc<StreamInfoHandle>,
+    doc: Arc<StreamInfoHandle>,
 }
 
 impl XMLElement {
