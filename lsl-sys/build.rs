@@ -20,8 +20,15 @@ fn build_liblsl() {
         // (these cause the build to fail)...
         // * /EHsc sets the correct exception handling mode
         // * /GR enables RTTI
-        // * /MD links in the msvcrt as a DLL instead of statically
-        let cxx_args = " /nologo /EHsc /MD /GR";
+        // * /MD links in the msvcrt as a DLL, /MT statically; this follows the
+        //   Rust side (`-C target-feature=+crt-static`), as the two must match
+        let crt_static = env::var("CARGO_CFG_TARGET_FEATURE")
+            .map_or(false, |features| features.split(',').any(|f| f == "crt-static"));
+        let cxx_args = if crt_static {
+            " /nologo /EHsc /MT /GR"
+        } else {
+            " /nologo /EHsc /MD /GR"
+        };
         cfg 
             .define("WIN32", "1")
             .define("_WINDOWS", "1")
@@ -31,6 +38,16 @@ fn build_liblsl() {
             .define("CMAKE_CXX_FLAGS_DEBUG", cxx_args)
             .define("CMAKE_C_FLAGS_RELEASE", cxx_args)
             .define("CMAKE_CXX_FLAGS_RELEASE", cxx_args);
+        // the cmake crate picks these for opt-level "s"/"z" and for release
+        // with debug info; their defaults bring their own /MD, so keep only
+        // their optimisation flags
+        let min_size_rel = format!("{} /O1 /Ob1 /DNDEBUG", cxx_args);
+        let rel_with_deb_info = format!("{} /Zi /O2 /Ob1 /DNDEBUG", cxx_args);
+        cfg
+            .define("CMAKE_C_FLAGS_MINSIZEREL", &min_size_rel)
+            .define("CMAKE_CXX_FLAGS_MINSIZEREL", &min_size_rel)
+            .define("CMAKE_C_FLAGS_RELWITHDEBINFO", &rel_with_deb_info)
+            .define("CMAKE_CXX_FLAGS_RELWITHDEBINFO", &rel_with_deb_info);
     }
     let install_dir = cfg.build();
 
